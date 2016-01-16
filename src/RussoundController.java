@@ -25,6 +25,8 @@ public class RussoundController extends BaseController {
 	 */
 	public RussoundController(Properties config) throws IOException {
 		super(config);
+		logger.info("starting RussoundController");
+
 		lock.set(LOCK_AVAILABLE);
 
 		logger.debug("opening telnet to " + hostname + ":" + RUSSOUND_TELNET_PORT);
@@ -83,6 +85,7 @@ public class RussoundController extends BaseController {
 
 	@Override
 	public void close() throws IOException {
+		logger.info("--- closing");
 		TelnetClient telnet = telnetHolder.get();
 		telnet.close();
 		// stop the maintainer

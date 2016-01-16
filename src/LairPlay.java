@@ -7,9 +7,13 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class LairPlay {
+	final Logger logger = LoggerFactory.getLogger(LairPlay.class);
+
 	private final int basePort;
 	private final AmplifierController controller;
 	
@@ -18,6 +22,8 @@ public class LairPlay {
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
 		SLF4JBridgeHandler.install();
 		
+		logger.info("starting LairPlay");
+
 		Properties config = getProperties(configuration);
 		String type = config.getProperty("controllerType");
 		if (type == null) throw new RuntimeException("missing controllerType");
@@ -25,10 +31,12 @@ public class LairPlay {
 		String temp = config.getProperty("basePort");
 		if (temp == null) throw new RuntimeException("missing basePort");
 		basePort = Integer.parseInt(temp);
+
+		logger.info("base port = " + basePort);
 		
 		controller = type.equals("Russound") ? 
 				new RussoundController(config) :
-				new BaseController(config);
+				new DummyController(config);
 	}
 	
 	public void play() {
