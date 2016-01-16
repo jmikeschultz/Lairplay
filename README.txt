@@ -9,7 +9,7 @@ This builds on bencall's RPlay
 It emulates an Airport Express for the purpose of streaming music from iTunes and compatible iPods.
 It implements a server for the Apple RAOP protocol.
 It allows you to control a multizone amplifier controller (specifically the Russound MCA5)
-   directly through Airplay without controller middleware
+   directly through Airplay without a controller middleware app.
 
 Installation
 ------------
