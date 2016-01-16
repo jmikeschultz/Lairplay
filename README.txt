@@ -1,12 +1,15 @@
-RPlay v0.03
+LairPlay v0.1
 ==============
-Benjamin de Callatay
-April 22, 2011
+Mike Schultz
+January 15, 2016
 
 What it is
 ----------
-This program is in alpha version.
-It emulates an Airport Express for the purpose of streaming music from iTunes and compatible iPods. It implements a server for the Apple RAOP protocol.
+This builds on bencall's RPlay
+It emulates an Airport Express for the purpose of streaming music from iTunes and compatible iPods.
+It implements a server for the Apple RAOP protocol.
+It allows you to control a multizone amplifier controller (specifically the Russound MCA5)
+   directly through Airplay without controller middleware
 
 Installation
 ------------
