@@ -1,5 +1,10 @@
 import java.util.*;
+
 import javax.jmdns.*;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 
 /**
@@ -10,44 +15,78 @@ import java.io.IOException;
 
 //
 public class BonjourEmitter {
-	JmDNS jmdns;
+	final static int HOUSE_SYMBOL = 0x2302;
+	// causes all the zones to show up together on iphone
+	final static String house = new String(Character.toChars(HOUSE_SYMBOL));
+	private final Logger logger = LoggerFactory.getLogger(BonjourEmitter.class);
+	private final byte[] randId = new byte[6]; // based on mac addr length
 	
-	public BonjourEmitter(String name, String identifier, int port, boolean pass) throws IOException {
+	private final JmDNS jmdns;
 
-			// Set up TXT Record	    
-		    Map<String,Object> txtRec = new HashMap<String,Object>();
-		    txtRec.put("txtvers", "1");
-		    txtRec.put("pw", String.valueOf(pass));
-		    txtRec.put("sr", "44100");
-		    txtRec.put("ss", "16");
-		    txtRec.put("ch", "2");
-		    txtRec.put("tp", "UDP");
-		    txtRec.put("sm", "false");
-		    txtRec.put("sv", "false");
-		    txtRec.put("ek", "1");
-		    txtRec.put("et", "0,1");
-		    txtRec.put("cn", "0,1");
-		    txtRec.put("vn", "3");
+	public BonjourEmitter(String name, int port, String password) throws IOException {
+		name = house + " " + name;
+		setRandomId(name);
+		Map<String,Object> txtRec = new HashMap<String,Object>();
+		// Set up TXT Record	    
+		txtRec.put("txtvers", "1");
+		txtRec.put("pw", String.valueOf(password != null));
+		txtRec.put("sr", "44100");
+		txtRec.put("ss", "16");
+		txtRec.put("ch", "2");
+		txtRec.put("tp", "UDP");
+		txtRec.put("sm", "false");
+		txtRec.put("sv", "false");
+		txtRec.put("ek", "1");
+		txtRec.put("et", "0,1");
+		txtRec.put("cn", "0,1");
+		txtRec.put("vn", "3");
 		    		   
-		    // Il faut un serial bidon pour se connecter
-		    if (identifier == null) {
-		    	identifier = "";
-		    	for(int i=0; i<6; i++)
-		    		identifier = identifier + Integer.toHexString((int) (Math.random()*255)).toUpperCase();
-		    }
-
-			// Zeroconf registration
-			jmdns = JmDNS.create();
-			ServiceInfo serviceInfo = ServiceInfo.create("_raop._tcp.local.", identifier + "@" + name, port, 0, 0, txtRec);
-            jmdns.registerService(serviceInfo);
+		// Zeroconf registration		
+		jmdns = JmDNS.create();
+		String identifier = toHexString(randId);
+		ServiceInfo serviceInfo = ServiceInfo.create("_raop._tcp.local.", identifier + "@" + name, port, 0, 0, txtRec);
+		jmdns.registerService(serviceInfo);				
+		logger.info(String.format("announced [%s@%s:%d]", name, identifier, port));
 	}
-
+	
+	/**
+	 * 
+	 * @return
+	 */
+	public byte[] getRandomId() {
+		return randId;
+	}
+	
 	/**
 	 * Stop service publishing
 	 */
 	public void stop() throws IOException {
 		jmdns.unregisterAllServices();
 		jmdns.close();
-	} 
+	}
+	
+	/**
+	 * 
+	 * @param string
+	 */
+	private void setRandomId(String string) {
+		int hash = string.hashCode();
+		Random rand = new Random(hash);
+		rand.nextBytes(randId);
+	}
+	
+	/**
+	 * 
+	 * @param bytes
+	 * @return
+	 */
+	private String toHexString(byte[] bytes) {
+	    StringBuilder sb = new StringBuilder();
+	    for (byte b : bytes) {
+	      sb.append(String.format("%02x", b));
+	    }
+	      
+	    return sb.toString();
+	}
 }
 

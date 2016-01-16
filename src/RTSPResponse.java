@@ -1,4 +1,3 @@
-
 public class RTSPResponse {
 	
 	private StringBuilder response = new StringBuilder();
@@ -27,5 +26,4 @@ public class RTSPResponse {
 	public String toString() {
 		return " -> " + response.toString().replaceAll("\r\n", "\r\n -> ");
 	}
-	
 }

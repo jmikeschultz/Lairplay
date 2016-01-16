@@ -7,7 +7,7 @@ import java.net.DatagramSocket;
  * @author bencall
  *
  */
-public class UDPListener extends Thread{
+public class UDPListener extends Thread {
 	// Constantes
 	public static final int MAX_PACKET = 2048;
 

@@ -1,4 +1,3 @@
-
 /**
  * biquad_t struct
  * @author bencall

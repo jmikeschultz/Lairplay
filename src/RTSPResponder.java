@@ -14,12 +14,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.crypto.Cipher;
+
 import java.security.MessageDigest;
 import java.math.BigInteger;
 
 import org.apache.commons.codec.binary.Base64;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -28,12 +31,13 @@ import org.bouncycastle.openssl.PEMReader;
  *
  */
 public class RTSPResponder extends Thread {
-
+	final Logger logger = LoggerFactory.getLogger(RTSPResponder.class);
+	private final AmplifierController controller;
 	private Socket socket;					// Connected socket
 	private int[] fmtp;
 	private byte[] aesiv, aeskey;			// ANNOUNCE request infos
-	private AudioServer serv; 				// Audio listener
-	byte[] hwAddr;
+	private AudioServer audioServer; 		// Audio listener
+	byte[] uniqId;
 	private BufferedReader in;
 	private String password;
 	private RTSPResponse response;
@@ -67,21 +71,68 @@ public class RTSPResponder extends Thread {
 		+"2gG0N5hvJpzwwhbhXqFKA4zaaSrw622wDniAK5MlIE0tIAKKP4yxNGjoD2QYjhBGuhvkWKaXTyY=\n"
 		+"-----END RSA PRIVATE KEY-----\n"; 
 
-	public RTSPResponder(byte[] hwAddr, Socket socket) throws IOException {
-		this.hwAddr = hwAddr;
+
+	/**
+	 * These volumes come from the iphone over raop protocol
+	 */
+	private static class VolumeTranslator {
+		public static int MAX_KNOB_VOLUME = 16;
+		private static double[] iPhoneVolumes = {
+				-144.000, -28.125, -26.250, -24.375, -22.500, -20.625, -18.750, -16.875, 
+				-15.000, -13.125, -11.250, -9.375, -7.500, -5.625, -3.750, -1.875, 0.000
+		};
+
+		/**
+		 * 
+		 * @param raopVolume value coming from RAOP protocol
+		 * @return float value from 0 to 1.0
+		 */
+		public static float getKnobVolume(float raopVolume) {
+			for (int i = 0; i < iPhoneVolumes.length; i++) {
+				if (iPhoneVolumes[i] >= raopVolume) {
+					return (float)i/(float)(iPhoneVolumes.length-1);
+				}
+			}
+			
+			return 0.0F;
+		}
+		
+		public static float getRaopVolume(float knobVolume) {
+			if (knobVolume > 1.0F) return 0.0F;
+			int idx = (int)(knobVolume * iPhoneVolumes.length-1);
+			return (float)iPhoneVolumes[idx];
+			
+		}
+	}
+	/**
+	 * 
+	 * @param uniqId
+	 * @param socket
+	 * @throws IOException
+	 */
+	public RTSPResponder(byte[] uniqId, Socket socket, AmplifierController controller) throws IOException {
+		this.controller = controller;
+		this.uniqId = uniqId;
 		this.socket = socket;
 		in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 	}
 
-	public RTSPResponder(byte[] hwAddr, Socket socket, String pass) throws IOException {
-		this.hwAddr = hwAddr;
+	/**
+	 * 
+	 * @param uniqId
+	 * @param socket
+	 * @param pass
+	 * @throws IOException
+	 */
+	public RTSPResponder(byte[] uniqId, Socket socket, String pass, AmplifierController controller) throws IOException {
+		this.controller = controller;
+		this.uniqId = uniqId;
 		this.socket = socket;
 		this.password = pass;
 		in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 	}
 
 	public RTSPResponse handlePacket(RTSPPacket packet) {
-
 		if(password == null) {
 			// No pass = ok!
 			response = new RTSPResponse("RTSP/1.0 200 OK");
@@ -122,8 +173,6 @@ public class RTSPResponder extends Thread {
 			}
 		}
         
-        
-        
 		// Apple Challenge-Response field if needed
     	String challenge;
     	if( (challenge = packet.valueOfHeader("Apple-Challenge")) != null){
@@ -143,7 +192,7 @@ public class RTSPResponder extends Thread {
 				// IP-Address
 				out.write(ip);
 				// HW-Addr
-				out.write(hwAddr);
+				out.write(uniqId);
 
 				// Pad to 32 Bytes
 				int padLen = 32 - out.size();
@@ -152,9 +201,8 @@ public class RTSPResponder extends Thread {
 				}
 
 			} catch (IOException e) {
-				e.printStackTrace();
+				logger.error("what happened", e);
 			}
-
     		 
     		// RSA
     		byte[] crypted = this.encryptRSA(out.toByteArray());
@@ -216,9 +264,13 @@ public class RTSPResponder extends Thread {
         	}
             
         	// Launching audioserver
-			serv = new AudioServer(new AudioSession(aesiv, aeskey, fmtp, controlPort, timingPort));
+			audioServer = new AudioServer(new AudioSession(aesiv, aeskey, fmtp, controlPort, timingPort));
 
-        	response.append("Transport", packet.valueOfHeader("Transport") + ";server_port=" + serv.getServerPort());
+			// fixed volume, acting as line out signal
+			float knobVolume = controller.getLineOutKnobVolume();
+			audioServer.setVolume(VolumeTranslator.getRaopVolume(knobVolume));
+
+        	response.append("Transport", packet.valueOfHeader("Transport") + ";server_port=" + audioServer.getServerPort());
         			
         	// ??? Why ???
         	response.append("Session", "DEADBEEF");
@@ -230,7 +282,7 @@ public class RTSPResponder extends Thread {
 //        	Note 2: Initial value for the RTP Timestamps, random 32 bit value
 
         } else if (REQ.contentEquals("FLUSH")){
-        	serv.flush();
+        	audioServer.flush();
         
         } else if (REQ.contentEquals("TEARDOWN")){
         	response.append("Connection", "close");
@@ -240,13 +292,24 @@ public class RTSPResponder extends Thread {
         	Pattern p = Pattern.compile("volume: (.+)");
         	Matcher m = p.matcher(packet.getContent());
         	if(m.find()){
-                double volume = (double) Math.pow(10.0,0.05*Double.parseDouble(m.group(1)));
-                serv.setVolume(65536.0 * volume);
+        		String packetValue = m.group(1);
+        		float raopVolume = Float.parseFloat(packetValue);
+        		float knobVolume = VolumeTranslator.getKnobVolume(raopVolume);
+
+        		logger.info("raop volume: " + raopVolume + " knob volume: " + knobVolume);
+
+        		//audioServer.setVolume(raopVolume);
+                try {
+                	controller.setVolume(knobVolume);
+                }
+                catch (IOException e) {
+                	logger.info("could not adjust volume");                		
+                }
         	}
         	
         } else {
-        	System.out.println("REQUEST(" + REQ + "): Not Supported Yet!");
-        	System.out.println(packet.getRawPacket());
+        	logger.info("REQUEST(" + REQ + "): Not Supported Yet!");
+        	logger.debug(packet.getRawPacket());
         }
         
     	// We close the response
@@ -298,8 +361,8 @@ public class RTSPResponder extends Thread {
 	        cipher.init(Cipher.ENCRYPT_MODE, pObj.getPrivate());
 	        return cipher.doFinal(array);
 
-		}catch(Exception e){
-			e.printStackTrace();
+		}catch(Exception e) {
+			logger.error("what happened", e);
 		}
 
 		return null;
@@ -324,7 +387,7 @@ public class RTSPResponder extends Thread {
 	        return cipher.doFinal(array);
 
 		}catch(Exception e){
-			e.printStackTrace();
+			logger.error("what happened", e);
 		}
 
 		return null;
@@ -333,10 +396,11 @@ public class RTSPResponder extends Thread {
 	/**
 	 * Thread to listen packets
 	 */
+	@Override
 	public void run() {
 		try {
 			do {
-				System.out.println("listening packets ... ");
+				logger.debug("listening packets ... ");
 				// feed buffer until packet completed
 				StringBuffer packet = new StringBuffer();
 				int ret = 0;
@@ -350,8 +414,8 @@ public class RTSPResponder extends Thread {
 					// We handle the packet
 					RTSPPacket request = new RTSPPacket(packet.toString());
 					RTSPResponse response = this.handlePacket(request);		
-					System.out.println(request.toString());	
-					System.out.println(response.toString());
+					logger.debug(request.toString());	
+					logger.debug(response.toString());
 		
 			    	// Write the response to the wire
 			    	try {			
@@ -359,7 +423,7 @@ public class RTSPResponder extends Thread {
 			    		oStream.write(response.getRawPacket());
 			    		oStream.flush();
 					} catch (IOException e) {
-						e.printStackTrace();
+						logger.error("what happened", e);
 					}
 					
 		    		if("TEARDOWN".equals(request.getReq())){
@@ -371,24 +435,22 @@ public class RTSPResponder extends Thread {
 	    			socket = null;
 				}
 			} while (socket!=null);
-			
 		} catch (IOException e) {
-			e.printStackTrace();
-			
+			logger.error("what happened", e);
 		} finally {
 			try {
 				if (in!=null) in.close();
 			} catch (IOException e) {
-				e.printStackTrace();
+				logger.error("what happened", e);
 			} finally {
 				try {
 					if (socket!=null) socket.close();
 				} catch (IOException e) {
-					e.printStackTrace();
+					logger.error("what happened", e);
 				}
 			}
 		}
-		System.out.println("connection ended.");
-	}
 		
+		logger.info("connection ended: " + uniqId); 
+	}
 }

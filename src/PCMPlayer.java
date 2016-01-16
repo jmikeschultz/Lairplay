@@ -1,6 +1,9 @@
 import javax.sound.sampled.*;
 import javax.sound.sampled.DataLine.Info;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 
 
@@ -9,7 +12,8 @@ import javax.sound.sampled.DataLine.Info;
  * @author bencall
  *
  */
-public class PCMPlayer extends Thread{
+public class PCMPlayer extends Thread {
+	private final Logger logger = LoggerFactory.getLogger(PCMPlayer.class);
 	private AudioFormat audioFormat;
 	private Info info;
 	private SourceDataLine dataLine;
@@ -19,7 +23,7 @@ public class PCMPlayer extends Thread{
 	private AudioBuffer audioBuf;
 	private boolean stopThread = false;
 	
-	public PCMPlayer(AudioSession session, AudioBuffer audioBuf){
+	public PCMPlayer(AudioSession session, AudioBuffer audioBuf) {
 		super();
 		this.session = session;
 		this.audioBuf = audioBuf;
@@ -32,12 +36,14 @@ public class PCMPlayer extends Thread{
 	        dataLine.start();
 
         } catch (LineUnavailableException e) {
-			e.printStackTrace();
+			logger.error("what happened", e);
+			stopThread = true; // we can't start
 		}
-
-        
 	}
 	
+	/**
+	 * 
+	 */
 	public void run(){
 		boolean fin = stopThread;
 		

@@ -8,13 +8,18 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * Main class that listen for new packets.
  * @author bencall
  *
  */
-public class AudioServer implements UDPDelegate{
+public class AudioServer implements UDPDelegate {
+	final Logger logger = LoggerFactory.getLogger(AudioServer.class);
+	
 	// Constantes
 	public static final int BUFFER_FRAMES = 512;	// Total buffer size (number of frame)
 	public static final int START_FILL = 282;		// Alac will wait till there are START_FILL frames in buffer
@@ -43,10 +48,8 @@ public class AudioServer implements UDPDelegate{
      * @param timingPort
      */
 	public AudioServer(AudioSession session){		
-		// Init instance var
+		logger.info("staring audio session");
 		this.session = session;
-		
-		// Init functions
 		audioBuf = new AudioBuffer(session, this);
 		this.initRTP();
 		player = new PCMPlayer(session, audioBuf);
@@ -62,9 +65,14 @@ public class AudioServer implements UDPDelegate{
 		}
 		csock.close();
 	}
-	
-	public void setVolume(double vol){
-		player.setVolume(vol);
+
+	/**
+	 * 
+	 * @param raopVolume the value coming from the RAOP protocol
+	 */
+	public void setVolume(float raopVolume){
+        float rawVolume = (float) Math.pow(10.0,0.05*raopVolume);
+		player.setVolume(rawVolume * 65536.0);
 	}
 	
 	/**
@@ -129,7 +137,7 @@ public class AudioServer implements UDPDelegate{
 	 * @param last
 	 */
 	public void request_resend(int first, int last) {
-		System.out.println("Resend Request: " + first + "::" + last);
+		logger.debug("Resend Request: " + first + "::" + last);
 		if(last<first){
 			return;
 		}
@@ -142,10 +150,8 @@ public class AudioServer implements UDPDelegate{
 			csock.send(temp);
 			
 		} catch (IOException e) {
-			e.printStackTrace();
+			logger.error("what happened", e);
 		}
-		
-		
 	}
 	
 	/**

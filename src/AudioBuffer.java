@@ -5,6 +5,9 @@ import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.beatofthedrum.alacdecoder.AlacDecodeUtils;
 
 /**
@@ -14,6 +17,8 @@ import com.beatofthedrum.alacdecoder.AlacDecodeUtils;
  *
  */
 public class AudioBuffer {
+	final Logger logger = LoggerFactory.getLogger(AudioBuffer.class);
+	
 	// Constants - Should be somewhere else
 	public static final int BUFFER_FRAMES = 512;	// Total buffer size (number of frame)
 	public static final int START_FILL = 282;		// Alac will wait till there are START_FILL frames in buffer
@@ -86,16 +91,16 @@ public class AudioBuffer {
 		    
 			if(actualBufSize<1 || !synced){			// If no packets more or Not synced (flush: pause)
 				if(synced){							// If it' because there is not enough packets
-					System.err.println("Underrun!!! Not enough frames in buffer!");
+					logger.debug("Underrun!!! Not enough frames in buffer!");
 				}
 				
 				try {
 					// We say the decoder is stopped and we wait for signal
-					System.err.println("Waiting");
+					logger.debug("Waiting");
 					decoder_isStopped = true;
 				    	lock.wait();
 				    decoder_isStopped = false;
-					System.err.println("re-starting");					
+					logger.debug("re-starting");					
 					readIndex++;	// We read next packet
 					
 					// Underrun: stream reset
@@ -109,7 +114,7 @@ public class AudioBuffer {
 			
 			// Overrunning. Restart at a sane distance
 		    if (actualBufSize >= BUFFER_FRAMES) {   // overrunning! uh-oh. restart at a sane distance
-				System.err.println("Overrun!!! Too much frames in buffer!");
+				logger.debug("Overrun. Too many frames in buffer.");
 		        readIndex = writeIndex - START_FILL;
 		    }
 			// we get the value before the unlock ;-)
@@ -127,7 +132,7 @@ public class AudioBuffer {
 		    AudioData buf = audioBuffer[read % BUFFER_FRAMES];
 		    
 		    if(!buf.ready){
-		    	System.err.println("Missing Frame!");
+		    	logger.debug("Missing Frame!");
 		    	// Set to zero then
 		    	for(int i=0; i<buf.data.length; i++){
 		    		buf.data[i] = 0;
@@ -139,8 +144,8 @@ public class AudioBuffer {
 		    if(readIndex == 65536){
 		    	readIndex = 0;
 		    }
+		    
 			return buf.data;
-
 		}
 	}
 	
@@ -176,7 +181,7 @@ public class AudioBuffer {
 				outputSize = this.alac_decode(data, audioBuffer[(seqno % BUFFER_FRAMES)].data);
 				audioBuffer[(seqno % BUFFER_FRAMES)].ready = true;
 			} else {
-				System.err.println("Late packet with seq. numb.: " + seqno);			// Really to late
+				logger.debug("Late packet with seq. numb.: " + seqno);			// Really to late
 			}
 			
 			// The number of packet in buffer
@@ -261,8 +266,4 @@ public class AudioBuffer {
 		
 		return -1;
 	}
-	
-	
-	
-
 }
