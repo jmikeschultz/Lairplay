@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,12 +11,8 @@ public class RussoundController extends BaseController {
 	private final AtomicInteger lock = new AtomicInteger();
 	private final static int RUSSOUND_TELNET_PORT = 9621;
 	private final static int MAC_MINI_SOURCE = 2;
-	private final AtomicReference<TelnetClient> telnetHolder = new AtomicReference<TelnetClient>();
+	private final TelnetManager telnetManager;
 	
-	private final Thread maintainer;
-	private final static int LIFE_SECS = 120;
-	private final static int OVERLAP_SECS = 20;
-
 	/**
 	 * 
 	 * @param hostname like MCAC5-006B08.local from router device list
@@ -26,69 +21,20 @@ public class RussoundController extends BaseController {
 	public RussoundController(Properties config) throws IOException {
 		super(config);
 		logger.info("starting RussoundController");
-
 		lock.set(LOCK_AVAILABLE);
-
-		logger.debug("opening telnet to " + hostname + ":" + RUSSOUND_TELNET_PORT);
-		TelnetClient telnet = new TelnetClient(hostname, RUSSOUND_TELNET_PORT);
-		
-		telnetHolder.set(telnet);
-		
-		/**
-		 * maintainer keeps 2 telnets open to the controller
-		 * and expires them after LIFE_SECS;
-		 */
-		maintainer = new Thread() {
-			@Override
-			public void run() {
-				while (true) {
-					try {
-						Thread.sleep(LIFE_SECS * 1000);
-					} catch (InterruptedException e) {
-						logger.info("what happened?", e);
-						return;
-					}
-				
-					TelnetClient curr = telnetHolder.get();
-
-					TelnetClient next;
-					try {
-						logger.debug("opening telnet to " + hostname + ":" + RUSSOUND_TELNET_PORT);
-						next = new TelnetClient(hostname, RUSSOUND_TELNET_PORT);
-					} catch (IOException e) {
-						logger.info("what happened?", e);
-						return;
-					}
-					telnetHolder.set(next);
-
-					// keep curr around for late commands
-					try {
-						Thread.sleep(OVERLAP_SECS * 1000);
-					} catch (InterruptedException e) {
-						logger.info("what happened?", e);
-						return;
-					}
-				
-					try {
-						logger.debug("closing telnet to " + hostname + ":" + RUSSOUND_TELNET_PORT);
-						curr.close();
-					} catch (IOException e) {
-						logger.info("what happened?", e);
-						return;
-					}
-				}
-			}
-		};
-		
-		maintainer.start();
+		telnetManager = new TelnetManager(hostname, RUSSOUND_TELNET_PORT);
+		telnetManager.start();
 	}
 
 	@Override
 	public void close() throws IOException {
 		logger.info("--- closing");
-		TelnetClient telnet = telnetHolder.get();
-		telnet.close();
-		// stop the maintainer
+		telnetManager.close();
+		try {
+			telnetManager.join();
+		} catch (InterruptedException e) {
+			logger.error(e.getMessage());
+		}
 	}
 	
 	/**
@@ -98,7 +44,7 @@ public class RussoundController extends BaseController {
 	 * @throws IOException
 	 */
 	private synchronized String execute(String command) throws IOException {
-		TelnetClient telnet = telnetHolder.get();
+		TelnetClient telnet = telnetManager.getClient();
 		telnet.writeln(command);
 		return telnet.readln();
 	}
