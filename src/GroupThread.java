@@ -1,9 +1,9 @@
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
+import java.util.concurrent.BlockingQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,17 +24,19 @@ public class GroupThread extends Thread {
 	private final int port;
 	private final String password = null; // for now
 	private final AmplifierController controller;
+	private final BlockingQueue<BaseResponder> responderQueue;
 	/**
 	 * 
 	 * @param info 
 	 * @param lock used to coordinate use of the singleton audio output
 	 * @throws UnknownHostException 
 	 */
-	public GroupThread(String name, int port, AmplifierController controller) {
+	public GroupThread(String name, int port, AmplifierController controller, BlockingQueue<BaseResponder> reponderQueue) {
 		super(name);
 		this.name = name;
 		this.port = port;
 		this.controller = controller;
+		this.responderQueue = reponderQueue;
 	}
 
 	public int getPort() {
@@ -63,43 +65,32 @@ public class GroupThread extends Thread {
 				
 		
 		try {
-			InetAddress local = InetAddress.getLocalHost();
+			// airplay publicizing
 			emitter = new BonjourEmitter(name, port, null);
-			byte[] randomId = emitter.getRandomId();
 			
 			// We listen for new connections
 			servSock = getServerSocket();
 						
 			while (!done) {
 				try {
-					Socket socket = servSock.accept();
+					Socket socket = servSock.accept();  // block
 					
-					// if we're connecting to ourself or the controller is unavailable
-					if (socket.getInetAddress() == local || !controller.activateGroup(name)) {
-						logger.info("controller unavailable for group: " + name);
-						socket.close();
-						continue;
+					BaseResponder responder = responderQueue.take();
+					if (! (responder instanceof EmptyResponder) ){
+						responder.stopResponder();
+						responder.join();
+						logger.info("responder thread finished");
 					}
 
 					logger.info("group '" + name + "' accepted connection from " + socket.toString());
 
 					// Check if password is set
-					Thread t = password != null ?
-							new RTSPResponder(randomId, socket, password, controller) :
-							new RTSPResponder(randomId, socket, controller);
-					t.start();
+					responder = password != null ?
+							new RTSPResponder(emitter.getRandomId(), socket, password, controller, name) :
+							new RTSPResponder(emitter.getRandomId(), socket, controller, name);
+					responder.start();
 					
-					// wait for the thread to end
-					while (t.isAlive()) {
-						try {
-							t.join(100);
-						} catch (InterruptedException e) {
-							logger.error("what happened", e);
-						}
-					}
-					
-					controller.deactivateGroup(name);
-					logger.info("device disconnected from group '" + name + "'");
+					responderQueue.add(responder);
 				} 
 				
 				catch(SocketTimeoutException e) {
@@ -107,7 +98,7 @@ public class GroupThread extends Thread {
 				}
 			}
 
-		} catch (IOException e) {
+		} catch (IOException | InterruptedException e) {
 			try {
 				logger.error("what happened", e);
 				controller.deactivateGroup(name);
@@ -121,7 +112,9 @@ public class GroupThread extends Thread {
 		finally {
 			try {
 				emitter.stop(); 
-				servSock.close();
+				if (servSock != null) {
+					servSock.close();
+				}
 				controller.deactivateGroup(name);
 			} catch (IOException e) {
 				logger.error("what happened", e);

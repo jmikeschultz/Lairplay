@@ -30,7 +30,7 @@ import org.slf4j.LoggerFactory;
  * @author bencall
  *
  */
-public class RTSPResponder extends Thread {
+public class RTSPResponder extends BaseResponder {
 	final Logger logger = LoggerFactory.getLogger(RTSPResponder.class);
 	private final AmplifierController controller;
 	private Socket socket;					// Connected socket
@@ -41,11 +41,16 @@ public class RTSPResponder extends Thread {
 	private BufferedReader in;
 	private String password;
 	private RTSPResponse response;
+	private final String group; 
+	
+	/*
+	private volatile boolean done = false;
 	
 	// Pre-define patterns
 	private static final Pattern authPattern = Pattern.compile("Digest username=\"(.*)\", realm=\"(.*)\", nonce=\"(.*)\", uri=\"(.*)\", response=\"(.*)\"");
 	private static final Pattern completedPacket = Pattern.compile("(.*)\r\n\r\n");
 
+	
 	private static final String key =  
 		"-----BEGIN RSA PRIVATE KEY-----\n"
 		+"MIIEpQIBAAKCAQEA59dE8qLieItsH1WgjrcFRKj6eUWqi+bGLOX1HL3U3GhC/j0Qg90u3sG/1CUt\n"
@@ -69,51 +74,19 @@ public class RTSPResponder extends Thread {
 		+"1JnLYT4iyUyx6pcZBmCd8bD0iwY/FzcgNDaUmbX9+XDvRA0CgYEAkE7pIPlE71qvfJQgoA9em0gI\n"
 		+"LAuE4Pu13aKiJnfft7hIjbK+5kyb3TysZvoyDnb3HOKvInK7vXbKuU4ISgxB2bB3HcYzQMGsz1qJ\n"
 		+"2gG0N5hvJpzwwhbhXqFKA4zaaSrw622wDniAK5MlIE0tIAKKP4yxNGjoD2QYjhBGuhvkWKaXTyY=\n"
-		+"-----END RSA PRIVATE KEY-----\n"; 
+		+"-----END RSA PRIVATE KEY-----\n"; */ 
 
-
-	/**
-	 * These volumes come from the iphone over raop protocol
-	 */
-	private static class VolumeTranslator {
-		public static int MAX_KNOB_VOLUME = 16;
-		private static double[] iPhoneVolumes = {
-				-144.000, -28.125, -26.250, -24.375, -22.500, -20.625, -18.750, -16.875, 
-				-15.000, -13.125, -11.250, -9.375, -7.500, -5.625, -3.750, -1.875, 0.000
-		};
-
-		/**
-		 * 
-		 * @param raopVolume value coming from RAOP protocol
-		 * @return float value from 0 to 1.0
-		 */
-		public static float getKnobVolume(float raopVolume) {
-			for (int i = 0; i < iPhoneVolumes.length; i++) {
-				if (iPhoneVolumes[i] >= raopVolume) {
-					return (float)i/(float)(iPhoneVolumes.length-1);
-				}
-			}
-			
-			return 0.0F;
-		}
-		
-		public static float getRaopVolume(float knobVolume) {
-			if (knobVolume > 1.0F) return 0.0F;
-			int idx = (int)(knobVolume * iPhoneVolumes.length-1);
-			return (float)iPhoneVolumes[idx];
-			
-		}
-	}
 	/**
 	 * 
 	 * @param uniqId
 	 * @param socket
 	 * @throws IOException
 	 */
-	public RTSPResponder(byte[] uniqId, Socket socket, AmplifierController controller) throws IOException {
+	public RTSPResponder(byte[] uniqId, Socket socket, AmplifierController controller, String group) throws IOException {
 		this.controller = controller;
 		this.uniqId = uniqId;
 		this.socket = socket;
+		this.group = group;
 		in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 	}
 
@@ -124,14 +97,19 @@ public class RTSPResponder extends Thread {
 	 * @param pass
 	 * @throws IOException
 	 */
-	public RTSPResponder(byte[] uniqId, Socket socket, String pass, AmplifierController controller) throws IOException {
+	public RTSPResponder(byte[] uniqId, Socket socket, String pass, AmplifierController controller, String group) throws IOException {
 		this.controller = controller;
 		this.uniqId = uniqId;
 		this.socket = socket;
 		this.password = pass;
+		this.group = group;
 		in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 	}
 
+	public synchronized void stopResponder() {
+		done = true;
+	}
+	
 	public RTSPResponse handlePacket(RTSPPacket packet) {
 		if(password == null) {
 			// No pass = ok!
@@ -348,7 +326,7 @@ public class RTSPResponder extends Thread {
 	 * Crypts with private key
 	 * @param array	data to encrypt
 	 * @return encrypted data
-	 */
+	 *
 	public byte[] encryptRSA(byte[] array){
 		try{
 			Security.addProvider(new BouncyCastleProvider());
@@ -366,13 +344,13 @@ public class RTSPResponder extends Thread {
 		}
 
 		return null;
-	}
+	}*/
 
 	/**
 	 * Decrypt with RSA priv key
 	 * @param array
 	 * @return
-	 */
+	 *
 	public byte[] decryptRSA(byte[] array){
 		try{
 			Security.addProvider(new BouncyCastleProvider());
@@ -391,7 +369,7 @@ public class RTSPResponder extends Thread {
 		}
 
 		return null;
-	}
+	}*/
 
 	/**
 	 * Thread to listen packets
@@ -399,8 +377,13 @@ public class RTSPResponder extends Thread {
 	@Override
 	public void run() {
 		try {
+			if (!controller.activateGroup(group)) {
+				logger.info("controller unavailable for group: " + group);
+				return;
+			}
+			
 			do {
-				logger.debug("listening packets ... ");
+				logger.debug("listening to packets ... ");
 				// feed buffer until packet completed
 				StringBuffer packet = new StringBuffer();
 				int ret = 0;
@@ -410,7 +393,9 @@ public class RTSPResponder extends Thread {
 					packet.append(new String(buffer));
 				} while (ret!=-1 && !completedPacket.matcher(packet.toString()).find());
 				
-				if (ret!=-1) {
+				logger.debug("about to handle packet ...");
+				
+				if (ret!=-1  && !done) {
 					// We handle the packet
 					RTSPPacket request = new RTSPPacket(packet.toString());
 					RTSPResponse response = this.handlePacket(request);		
@@ -444,13 +429,14 @@ public class RTSPResponder extends Thread {
 				logger.error("what happened", e);
 			} finally {
 				try {
+					controller.deactivateGroup(group);					
 					if (socket!=null) socket.close();
 				} catch (IOException e) {
 					logger.error("what happened", e);
 				}
 			}
 		}
-		
+
 		logger.info("connection ended: " + uniqId); 
 	}
 }

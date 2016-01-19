@@ -17,8 +17,16 @@ public class TelnetManager extends Thread {
 	public TelnetManager(String hostname, int port) {
 		this.hostname = hostname;
 		this.port = port;
-		logger.info("opening telnet to " + hostname + ":" + port);
-		telnetHolder.set(null);
+		
+		TelnetClient client;
+		try {
+			logger.debug("opening telnet to " + hostname + ":" + port);
+			client = new TelnetClient(hostname, port);
+		} catch (IOException e) {
+			logger.info("what happened?", e);
+			return;
+		}
+		telnetHolder.set(client);
 	}
 	
 	/**

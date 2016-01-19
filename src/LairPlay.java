@@ -6,6 +6,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,10 +16,9 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
 
 public class LairPlay {
 	final Logger logger = LoggerFactory.getLogger(LairPlay.class);
-
 	private final int basePort;
 	private final AmplifierController controller;
-	
+
 	public LairPlay(File configuration) throws IOException {
 		// jmdns uses java.util.logging enable jul-to-slf4j
 		SLF4JBridgeHandler.removeHandlersForRootLogger();
@@ -41,13 +43,40 @@ public class LairPlay {
 	
 	public void play() {
 		Set<String> groups = controller.getGroups();
-		List<Thread> threads = new ArrayList<>();
+		List<GroupThread> groupThreads = new ArrayList<>();
+		BlockingQueue<BaseResponder> responderQueue = new ArrayBlockingQueue<>(1);
 		
 		int port = basePort;
 		for (String group : groups) {
-			Thread t = new GroupThread(group, port++, controller);
+			GroupThread t = new GroupThread(group, port++, controller, responderQueue);
 			t.start();
-			threads.add(t);
+			groupThreads.add(t);
+		}
+
+		try {
+			responderQueue.add(new EmptyResponder());
+			
+			while (true) {
+				BaseResponder responder = responderQueue.take();
+				if (! (responder instanceof EmptyResponder) ) {
+					responder.join(100);
+					if (!responder.isAlive()) {
+						responder = new EmptyResponder();
+						logger.info("responder thread finished");
+					} 
+				}
+				responderQueue.add(responder);
+				
+				for (GroupThread thread : groupThreads) {
+					thread.join(100);
+				}
+				
+				Thread.sleep(1000);
+			}
+		}
+			
+		catch (InterruptedException e) {
+			logger.error("what happened", e);
 		}
 	}
 	

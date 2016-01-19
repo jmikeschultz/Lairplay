@@ -8,7 +8,7 @@ What it is
 This builds on bencall's RPlay
 It emulates an Airport Express for the purpose of streaming music from iTunes and compatible iPods.
 It implements a server for the Apple RAOP protocol.
-It allows you to control a multizone amplifier controller (specifically the Russound MCA5)
+It allows you to control a multizone amplifier controller (specifically the Russound MCA-C5)
    directly through Airplay without a controller middleware app.
 
 Installation
@@ -41,15 +41,3 @@ Contributors
 * [csholmq]
 * Everyone who has helped with shairport, the alac decoder (or the java port of it), apache commons lib or bouncycastle lib (see their README)
 
-Changelog
----------
-* 0.01a  April 22, 2011
-    * initial release: able to communicate with iTunes (RTSP server ok)
-* 0.01b  May 01, 2011
-    * First working version. Still buggy. Usable.   
-* 0.01c   May 06, 2011
-    * First binary version. Need feedback.
-* 0.02    April 29, 2013
-    * Fixed auto-startup and enabled RPlayNoGui.jar.
-* 0.03    May 2, 2013
-    * Added password support. Also replaced mDNSResponder with JmDNS.

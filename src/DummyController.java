@@ -32,7 +32,7 @@ public class DummyController extends BaseController {
 	
 	@Override
 	public synchronized boolean setVolume(float knobVolume) throws IOException {
-		logger.info("setting knob volume =" + knobVolume);
+		logger.info("setting knob volume = " + knobVolume);
 		return true;
 	}
 }

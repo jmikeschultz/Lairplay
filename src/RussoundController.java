@@ -1,14 +1,11 @@
 import java.io.IOException;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class RussoundController extends BaseController {
 	final Logger logger = LoggerFactory.getLogger(RussoundController.class);
-	public final static int LOCK_AVAILABLE = Integer.MIN_VALUE;
-	private final AtomicInteger lock = new AtomicInteger();
 	private final static int RUSSOUND_TELNET_PORT = 9621;
 	private final static int MAC_MINI_SOURCE = 2;
 	private final TelnetManager telnetManager;
@@ -21,7 +18,6 @@ public class RussoundController extends BaseController {
 	public RussoundController(Properties config) throws IOException {
 		super(config);
 		logger.info("starting RussoundController");
-		lock.set(LOCK_AVAILABLE);
 		telnetManager = new TelnetManager(hostname, RUSSOUND_TELNET_PORT);
 		telnetManager.start();
 	}
@@ -51,9 +47,6 @@ public class RussoundController extends BaseController {
 
 	@Override
 	public synchronized boolean activateGroup(String name) throws IOException {
-		boolean gotIt = lock.compareAndSet(LOCK_AVAILABLE, name.hashCode());
-		if (!gotIt) return false;
-		
 		activeZones = groups.get(name);
 		if (activeZones == null) {
 			logger.info("--- unknown group:" + name);
@@ -79,7 +72,6 @@ public class RussoundController extends BaseController {
 	
 	@Override
 	public synchronized boolean deactivateGroup(String name) throws IOException {
-		lock.compareAndSet(name.hashCode(), LOCK_AVAILABLE);
 		activeZones = groups.get(name);
 		if (activeZones == null) {
 			logger.info("--- unknown group:" + name);
