@@ -1,3 +1,5 @@
+package com.lairplay.audio;
+
 import javax.sound.sampled.*;
 import javax.sound.sampled.DataLine.Info;
 

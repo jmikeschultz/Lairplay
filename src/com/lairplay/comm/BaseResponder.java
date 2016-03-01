@@ -1,3 +1,5 @@
+package com.lairplay.comm;
+
 import java.io.StringReader;
 import java.math.BigInteger;
 import java.security.KeyPair;

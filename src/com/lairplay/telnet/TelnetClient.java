@@ -1,3 +1,5 @@
+package com.lairplay.telnet;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,9 +9,10 @@ import java.net.Socket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TelnetClient {
+class TelnetClient {
 	final Logger logger = LoggerFactory.getLogger(TelnetClient.class);
 	private final Socket socket;
+	private final long millisStart;
 
 	/**
 	 * 
@@ -29,8 +32,12 @@ public class TelnetClient {
 		}
 
 		socket = temp;
+		millisStart = System.currentTimeMillis();
 	}
-	
+
+	public long ageSecs() {
+		return (System.currentTimeMillis() - millisStart) / 1000L;
+	}
 	/**
 	 * 
 	 * @param string

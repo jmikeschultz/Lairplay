@@ -1,3 +1,4 @@
+package com.lairplay.audio;
 /**
  * C struct to java
  * @author bencall

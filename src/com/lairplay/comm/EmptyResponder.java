@@ -1,3 +1,4 @@
+package com.lairplay.comm;
 
 public class EmptyResponder extends BaseResponder {
 

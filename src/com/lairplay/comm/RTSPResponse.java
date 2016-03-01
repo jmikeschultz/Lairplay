@@ -1,3 +1,5 @@
+package com.lairplay.comm;
+
 public class RTSPResponse {
 	
 	private StringBuilder response = new StringBuilder();

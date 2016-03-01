@@ -1,3 +1,5 @@
+package com.lairplay.app;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -8,11 +10,16 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
+
+import com.lairplay.comm.BaseResponder;
+import com.lairplay.comm.EmptyResponder;
+import com.lairplay.controller.AmplifierController;
+import com.lairplay.controller.DummyController;
+import com.lairplay.controller.RussoundController;
 
 public class LairPlay {
 	final Logger logger = LoggerFactory.getLogger(LairPlay.class);

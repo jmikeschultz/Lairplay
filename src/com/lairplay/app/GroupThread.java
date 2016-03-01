@@ -1,3 +1,5 @@
+package com.lairplay.app;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -7,6 +9,12 @@ import java.util.concurrent.BlockingQueue;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.lairplay.comm.BaseResponder;
+import com.lairplay.comm.BonjourEmitter;
+import com.lairplay.comm.EmptyResponder;
+import com.lairplay.comm.RTSPResponder;
+import com.lairplay.controller.AmplifierController;
 
 
 

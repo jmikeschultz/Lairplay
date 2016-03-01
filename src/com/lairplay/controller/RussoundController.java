@@ -1,8 +1,12 @@
+package com.lairplay.controller;
+
 import java.io.IOException;
 import java.util.Properties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.lairplay.telnet.TelnetManager;
 
 public class RussoundController extends BaseController {
 	final Logger logger = LoggerFactory.getLogger(RussoundController.class);
@@ -40,9 +44,11 @@ public class RussoundController extends BaseController {
 	 * @throws IOException
 	 */
 	private synchronized String execute(String command) throws IOException {
-		TelnetClient telnet = telnetManager.getClient();
-		telnet.writeln(command);
-		return telnet.readln();
+		try {
+			return telnetManager.writeln(command);
+		} catch (InterruptedException e) {
+			throw new IOException(e);
+		}
 	}
 
 	@Override

@@ -1,6 +1,7 @@
+package com.lairplay.audio;
+
 import com.beatofthedrum.alacdecoder.AlacDecodeUtils;
 import com.beatofthedrum.alacdecoder.AlacFile;
-
 
 public class AudioSession {
 	private AlacFile alac;

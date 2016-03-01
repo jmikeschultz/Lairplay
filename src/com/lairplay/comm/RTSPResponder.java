@@ -1,3 +1,5 @@
+package com.lairplay.comm;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -23,6 +25,11 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.lairplay.audio.AudioServer;
+import com.lairplay.audio.AudioSession;
+import com.lairplay.comm.BaseResponder;
+import com.lairplay.controller.AmplifierController;
 
 
 /**
