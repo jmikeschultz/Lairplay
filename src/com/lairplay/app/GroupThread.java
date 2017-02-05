@@ -142,7 +142,7 @@ public class GroupThread extends Thread {
 			logger.info("group '" + name + "'  started.");
 			
 		} catch (IOException e) {
-			logger.error("port " + port + " busy for group '" + name + "'");
+			logger.error("group:" + name + " port:" + port + " error:" + e);
 			try {
 				emitter.stop();
 			} catch (IOException e1) {
