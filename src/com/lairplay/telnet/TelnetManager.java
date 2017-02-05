@@ -47,18 +47,16 @@ public class TelnetManager extends Thread {
 		return reply;
 	}
 	
-
-	
 	/**
 	 * 
 	 * @return
 	 * @throws InterruptedException 
 	 */
-	public TelnetClient getClient() throws InterruptedException {
+	private TelnetClient getClient() throws InterruptedException {
 		return clients.take();
 	}
 	
-	public void putBack(TelnetClient client) {
+	private void putBack(TelnetClient client) {
 		clients.add(client);
 	}
 	
